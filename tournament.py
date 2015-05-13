@@ -4,70 +4,70 @@
 #
 
 import psycopg2
+import bleach
 
 def connect():
-    """Connect to the PostgreSQL database.  Returns a database connection."""
-    return psycopg2.connect("dbname=tournament")
+    """Connect to the PostgreSQL db.  Returns a db connection and cursor."""
+    DB = psycopg2.connect("dbname=tournament")
+    c = DB.cursor()
+    return (DB, c)
 
 def deleteMatches():
     """Remove all the match records from the database."""
 
-    #connect to database and obtain a cursor
-    DB = connect()
-    c = DB.cursor()
+    # connect to database and obtain a cursor
+    DB, c = connect()
 
-    #prepare SQL statement and execute it
+    # prepare SQL statement and execute it
     sql = """
         DELETE FROM matches
     """
     c.execute(sql)
 
-    #commit immediately
+    # commit immediately
     DB.commit()
 
-    #close the database connection
+    # close the database connection
     DB.close()
 
 def deletePlayers():
     """Remove all the player records from the database."""
 
-    #connect to database and obtain a cursor
-    DB = connect()
-    c = DB.cursor()
+    # connect to database and obtain a cursor
+    DB, c = connect()
 
-    #prepare SQL statement and execute it
+    # prepare SQL statement and execute it
     sql = """
         DELETE FROM players
     """
     c.execute(sql)
 
-    #commit immediately
+    # commit immediately
     DB.commit()
 
-    #close the database connection
+    # close the database connection
     DB.close()
 
 def countPlayers():
     """Returns the number of players currently registered."""
 
-    #connect to database and obtain a cursor
-    DB = connect()
-    c = DB.cursor()
+    # connect to database and obtain a cursor
+    DB, c = connect()
 
-    #prepare SQL statement and execute it
+    # prepare SQL statement and execute it
     sql = """
         SELECT COUNT(*)
         FROM players
     """
     c.execute(sql)
 
-    #fetch the result
+    # fetch the result
     count = c.fetchone()[0]
 
-    #close the database connection
+    # close the database connection
     DB.close()
 
-    #return the result
+    # return the result
     return count
 
 def registerPlayer(name):
@@ -80,21 +80,21 @@ def registerPlayer(name):
       name: the player's full name (need not be unique).
     """
 
-    #connect to database and obtain a cursor
-    DB = connect()
-    c = DB.cursor()
+    # connect to database and obtain a cursor
+    DB, c = connect()
 
-    #prepare SQL statement and execute it
+    # prepare SQL statement and execute it
     sql = """
         INSERT INTO players(name)
         values (%s)
     """
+    name = bleach.clean(name)  #sanitize user input first
     c.execute(sql, (name,))  #supply value as an arg to prevent SQLi
 
-    #commit immediately
+    # commit immediately
     DB.commit()
 
-    #close the database connection
+    # close the database connection
     DB.close()
 
 def playerStandings():
@@ -111,11 +111,10 @@ def playerStandings():
         matches: the number of matches the player has played
     """
 
-    #connect to database and obtain a cursor
-    DB = connect()
-    c = DB.cursor()
+    # connect to database and obtain a cursor
+    DB, c = connect()
 
-    #prepare SQL statement and execute it
+    # prepare SQL statement and execute it
     sql = """
         SELECT id, name, wins, wins+loses as matches
         FROM score
@@ -123,13 +122,13 @@ def playerStandings():
     """
     c.execute(sql)
 
-    #fetch results from query
+    # fetch results from query
     results = c.fetchall()
 
-    #close the database connection
+    # close the database connection
     DB.close()
 
-    #return the results
+    # return the results
     return results
 
 def reportMatch(winner, loser):
@@ -140,21 +139,22 @@ def reportMatch(winner, loser):
       loser:  the id number of the player who lost
     """
 
-    #connect to database and obtain a cursor
-    DB = connect()
-    c = DB.cursor()
+    # connect to database and obtain a cursor
+    DB, c = connect()
 
-    #prepare SQL statement and execute it
+    # prepare SQL statement and execute it
     sql = """
         INSERT INTO matches(winner, loser)
         VALUES (%s, %s)
     """
+    winner = bleach.clean(winner)  #sanitize user input first
+    loser = bleach.clean(loser)  #sanitize user input first
     c.execute(sql, (winner, loser))  #supply values as args to prevent SQLi
 
-    #commit immediately
+    # commit immediately
     DB.commit()
 
-    #close the database connection
+    # close the database connection
     DB.close()
 
 def swissPairings():
@@ -173,10 +173,10 @@ def swissPairings():
         name2: the second player's name
     """
 
-    #all we have to do here is to get the standings data first
+    # all we have to do here is to get the standings data first
     results = playerStandings()
 
-    #then group the result into pairs based on ranking
-    #e.g. first and second, third and fourth etc
-    return [(results[x][0], results[x][1], results[x+1][0], results[x+1][1]) for x in range(0,len(results),2)]
-
+    # then group the result into pairs based on ranking
+    # e.g. first and second, third and fourth etc
+    return [(results[x][0], results[x][1], results[x+1][0], results[x+1][1])
+    	for x in range(0, len(results), 2)]
